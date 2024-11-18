@@ -60,9 +60,77 @@ depth_crop <- crop(depth, sst_c)
 
 # The resolutions of the SST and depth data do not match
 # Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
-depth_resample <- resample(depth, sst_c, method = "near")
+depth_resample <- resample(depth_crop, sst_c, method = "near")
 
 # Check that depth and SST match in resolution, extent and CRS
 sst_depth <- merge(sst_c, depth_resample)
+```
+
+### Find suitable locations
+
+```{r}
+# Find locations suitable for both SST and Depth
+
+# Reclassify SST and depth data into locations that suitable for oyseters
+# Set suitable values to 1 and unsuitable values to 0 
+
+# sea surface temperature: 11-30°C
+# depth: 0-70 meters below sea level
+
+# Reclassify data to meet parameters above
+
+# Create reclassification matrix for SST
+sst_rcl <- matrix(c(-Inf, 11, 0,
+                    11, 30, 1,
+                    30, Inf, 0),
+                  ncol = 3, byrow = TRUE)
+
+# Use reclassification matrix to reclassify sst raster
+sst_reclassify <- classify(sst_c, rcl = sst_rcl)
+
+# Check preliminary map
+plot(sst_reclassify)
+
+# Create classification matrix for Depth
+depth_rcl <- matrix(c(-Inf, 0, 0,
+                      0, 70, 1,
+                      70, Inf, 0),
+                    ncol = 3, byrow = TRUE)
+
+# Reclassify Depth raster
+depth_reclassify <- classify(depth_resample, rcl = depth_rcl)
+
+# Check preliminary map
+plot(depth_reclassify)
+
+# Find areas that satistfy both SST and Depth
+# Use lapp() to multiple values of rasters together
+sst_depth_condition <- lapp(c(sst_reclassify, depth_reclassify), fun = "*")
+
+# Plot both variables together to find suitable areas
+plot(sst_depth_condition)
+```
+
+### Determine the most suitable EEZ
+
+```{r}
+# Find total area of suitable locatinos within each EEZ
+
+# Select suitable cells within West Coast EEZs
+
+###### Trying things out #######
+
+# Vectorize raster data, see where data overlaps with each other??? This is how we determine EEZ range??? 
+sst_depth_vector <- as.polygons(sst_depth_condition) %>% 
+  st_as_sf() %>% filter(lyr1 == 1)
+
+sst_depth_eez <- st_intersects(sst_depth_vector, eez) %>% 
+  unlist()
+
+sst_idk <- sst_depth_vector[sst_depth_eez, ]
+
+
+tm_shape(sst_idk) +
+  tm_polygons()
 ```
 
