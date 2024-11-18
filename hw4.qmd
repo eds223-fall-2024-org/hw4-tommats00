@@ -1,0 +1,39 @@
+---
+title: "Homework 4"
+author: "Tom Gibbens-Matsuyama"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+### Load libraries
+
+```{r}
+library(tidyverse)
+library(tmap)
+library(terra)
+library(here)
+library(sf)
+```
+
+### Load data
+
+```{r}
+# Shapefile for the West Coast EEZ
+eez <- read_sf(here("data", "wc_regions_clean.shp"))
+
+# Bathymetry raster
+bathymetry <- rast(here("data", "depth.tif"))
+
+# SST rasters
+sst_2008 <- rast(here("data", "average_annual_sst_2008.tif"))
+sst_2009 <- rast(here("data", "average_annual_sst_2009.tif"))
+sst_2010 <- rast(here("data", "average_annual_sst_2010.tif"))
+sst_2011 <- rast(here("data", "average_annual_sst_2011.tif"))
+sst_2012 <- rast(here("data", "average_annual_sst_2012.tif"))
+
+# Use terra::merge to combine raster data
+sst <- terra::merge(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
+```
+
