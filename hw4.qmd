@@ -24,7 +24,7 @@ library(sf)
 eez <- read_sf(here("data", "wc_regions_clean.shp"))
 
 # Bathymetry raster
-bathymetry <- rast(here("data", "depth.tif"))
+depth <- rast(here("data", "depth.tif"))
 
 # SST rasters
 sst_2008 <- rast(here("data", "average_annual_sst_2008.tif"))
@@ -35,5 +35,34 @@ sst_2012 <- rast(here("data", "average_annual_sst_2012.tif"))
 
 # Use terra::merge to combine raster data
 sst <- terra::merge(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
+```
+
+### Compare CRS
+
+```{r}
+st_crs(eez) == st_crs(depth)
+
+st_crs(eez) == st_crs(sst)
+```
+
+
+### Process SST and depth data so they can be combined
+
+```{r}
+# Find mean SST from 2008-2012
+# Already done, SST
+
+# Convert average SST from Kelvin to Celsius
+sst_c <- sst - 273.15
+
+# Crop depth raster to match extent of SST raster
+depth_crop <- crop(depth, sst_c)
+
+# The resolutions of the SST and depth data do not match
+# Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
+depth_resample <- resample(depth, sst_c, method = "near")
+
+# Check that depth and SST match in resolution, extent and CRS
+sst_depth <- merge(sst_c, depth_resample)
 ```
 
