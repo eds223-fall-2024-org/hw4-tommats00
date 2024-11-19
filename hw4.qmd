@@ -34,7 +34,7 @@ sst_2011 <- rast(here("data", "average_annual_sst_2011.tif"))
 sst_2012 <- rast(here("data", "average_annual_sst_2012.tif"))
 
 # Use terra::merge to combine raster data
-sst <- terra::merge(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
+sst <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
 ```
 
 ### Compare CRS
@@ -43,6 +43,8 @@ sst <- terra::merge(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
 st_crs(eez) == st_crs(depth)
 
 st_crs(eez) == st_crs(sst)
+
+st_crs(sst) == st_crs(depth)
 ```
 
 
@@ -50,10 +52,10 @@ st_crs(eez) == st_crs(sst)
 
 ```{r}
 # Find mean SST from 2008-2012
-# Already done, SST
+mean_sst <- app(sst, fun = mean)
 
 # Convert average SST from Kelvin to Celsius
-sst_c <- sst - 273.15
+sst_c <- mean_sst - 273.15
 
 # Crop depth raster to match extent of SST raster
 depth_crop <- crop(depth, sst_c)
@@ -62,8 +64,11 @@ depth_crop <- crop(depth, sst_c)
 # Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
 depth_resample <- resample(depth_crop, sst_c, method = "near")
 
+# Set CRS the same
+depth_resample <- project(depth_resample, crs(sst))
+
 # Check that depth and SST match in resolution, extent and CRS
-sst_depth <- merge(sst_c, depth_resample)
+sst_depth <- c(sst_c, depth_resample)
 ```
 
 ### Find suitable locations
@@ -104,6 +109,7 @@ depth_reclassify <- classify(depth_resample, rcl = depth_rcl)
 plot(depth_reclassify)
 
 # Find areas that satistfy both SST and Depth
+
 # Use lapp() to multiple values of rasters together
 sst_depth_condition <- lapp(c(sst_reclassify, depth_reclassify), fun = "*")
 
@@ -119,6 +125,24 @@ plot(sst_depth_condition)
 # Select suitable cells within West Coast EEZs
 
 ###### Trying things out #######
+
+# Check to see if the extents are the same
+ext(sst_depth_condition) == ext(eez)
+
+# Crop to the same extent
+sst_depth_crop <- crop(sst_depth_condition, eez)
+
+# Recheck if extents are the same
+ext(sst_depth_crop) == ext(eez)
+
+# Rasterize eez data 
+eez_rast <- rasterize(eez, sst_depth_crop)
+
+# Preliminary Plot
+plot(eez_rast)
+
+plot(eez_rast - sst_depth_crop)
+
 
 # Vectorize raster data, see where data overlaps with each other??? This is how we determine EEZ range??? 
 sst_depth_vector <- as.polygons(sst_depth_condition) %>% 
