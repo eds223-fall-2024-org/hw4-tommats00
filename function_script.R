@@ -44,11 +44,9 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
   # Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
   depth_resample <- resample(depth_crop, sst_c, method = "near")
   
-  # Set CRS the same
-  # depth_resample <- project(depth_resample, crs(sst))
   
   # Check that depth and SST match in resolution, extent and CRS
-  # sst_depth <- c(sst_c, depth_resample)
+  sst_depth <- c(sst_c, depth_resample)
   
   
   
@@ -60,10 +58,7 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
   
   # Use reclassification matrix to reclassify sst raster
   sst_reclassify <- classify(sst_c, rcl = sst_rcl)
-  
-  # Check preliminary map
-  # plot(sst_reclassify)
-  
+
   # Create classification matrix for Depth
   depth_rcl <- matrix(c(-Inf, -max_depth, 0,
                         -max_depth, -min_depth, 1,
@@ -73,25 +68,11 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
   # Reclassify Depth raster
   depth_reclassify <- classify(depth_resample, rcl = depth_rcl)
   
-  # Check preliminary map
-  # plot(depth_reclassify)
-  
   # Find areas that satistfy both SST and Depth
-  
   # Use lapp() to multiple values of rasters together
   sst_depth_condition <- lapp(c(sst_reclassify, depth_reclassify), fun = "*")
   
-  # sst_depth_condition <- sst_reclassify * depth_reclassify
-  
-  # Plot both variables together to find suitable areas
-  # plot(sst_depth_condition)
-  
-  crs(sst_depth_condition) == crs(eez)
-  
-  crs(sst_depth_condition) <- crs(eez)
-  
-  crs(sst_depth_condition) == crs(eez)
-  
+  # Assign raster values of 0 to NA for cellSize calculation
   sst_depth_NA <- sst_depth_condition
   sst_depth_NA[sst_depth_NA == 0] <- NA
   
@@ -100,26 +81,25 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
                             mask = TRUE,
                             unit = "km")
   
-  plot(suitable_area)
   
-  # Rasterize
+  # Rasterize the eez data
   eez_raster <- rasterize(eez, suitable_area, "rgn")
-  #plot(eez_raster)
   
+  # Sum suitable areas for each eez 
   eez_suitable <- zonal(x = suitable_area, 
                         z = eez_raster, 
                         fun = "sum", 
                         na.rm = TRUE)
   
   
+  # Print out suitable area for the species in each eez 
+  print(paste("Suitable area for", species, "in", eez_suitable$rgn[1], "is", round(eez_suitable$area[1]), "km^2"))
+  print(paste("Suitable area for", species, "in", eez_suitable$rgn[2], "is", round(eez_suitable$area[2]), "km^2"))
+  print(paste("Suitable area for", species, "in", eez_suitable$rgn[3], "is", round(eez_suitable$area[3]), "km^2"))
+  print(paste("Suitable area for", species, "in", eez_suitable$rgn[4], "is", round(eez_suitable$area[4]), "km^2"))
+  print(paste("Suitable area for", species, "in", eez_suitable$rgn[5], "is", round(eez_suitable$area[5]), "km^2"))
   
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[1], "is", eez_suitable$area[1]))
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[2], "is", eez_suitable$area[2]))
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[3], "is", eez_suitable$area[3]))
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[4], "is", eez_suitable$area[4]))
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[5], "is", eez_suitable$area[5]))
-  
-  # Plot
+  # Map of suitable areas 
   tm_shape(depth_crop) +
     tm_raster(legend.show = FALSE) +
     tm_shape(sst_depth_condition) +

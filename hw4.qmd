@@ -24,7 +24,7 @@ library(paletteer)
 # Shapefile for the West Coast EEZ
 eez <- read_sf(here("data", "wc_regions_clean.shp"))
 
-# Bathymetry raster
+# Depth raster
 depth <- rast(here("data", "depth.tif"))
 
 # SST rasters
@@ -34,20 +34,22 @@ sst_2010 <- rast(here("data", "average_annual_sst_2010.tif"))
 sst_2011 <- rast(here("data", "average_annual_sst_2011.tif"))
 sst_2012 <- rast(here("data", "average_annual_sst_2012.tif"))
 
-# Use terra::merge to combine raster data
+# Combine 5 layers into one raster
 sst <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
 ```
 
 ### Compare CRS
 
 ```{r}
+eez <- st_transform(eez, crs("EPSG:4326"))
+depth <- project(depth, crs("EPSG:4326"))
+sst <- project(sst, crs("EPSG:4326"))
+
 st_crs(eez) == st_crs(depth)
 
 st_crs(eez) == st_crs(sst)
 
 st_crs(sst) == st_crs(depth)
-
-sst <- project(sst, crs(depth))
 ```
 
 
@@ -55,6 +57,7 @@ sst <- project(sst, crs(depth))
 
 ```{r}
 # Find mean SST from 2008-2012
+# Taking the mean of the 5 SST layers and turning it into one layer
 mean_sst <- app(sst, fun = mean, na.rm = TRUE)
 
 # Convert average SST from Kelvin to Celsius
@@ -63,12 +66,8 @@ sst_c <- mean_sst - 273.15
 # Crop depth raster to match extent of SST raster
 depth_crop <- crop(depth, sst_c)
 
-# The resolutions of the SST and depth data do not match
 # Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
 depth_resample <- resample(depth_crop, sst_c, method = "near")
-
-# Set CRS the same
-depth_resample <- project(depth_resample, crs(sst))
 
 # Check that depth and SST match in resolution, extent and CRS
 sst_depth <- c(sst_c, depth_resample)
@@ -86,8 +85,6 @@ sst_rcl <- matrix(c(-Inf, 11, 0,
 # Use reclassification matrix to reclassify sst raster
 sst_reclassify <- classify(sst_c, rcl = sst_rcl)
 
-# Check preliminary map
-plot(sst_reclassify)
 
 # Create classification matrix for Depth
 depth_rcl <- matrix(c(-Inf, -70, 0,
@@ -98,15 +95,9 @@ depth_rcl <- matrix(c(-Inf, -70, 0,
 # Reclassify Depth raster
 depth_reclassify <- classify(depth_resample, rcl = depth_rcl)
 
-# Check preliminary map
-plot(depth_reclassify)
-
 # Find areas that satistfy both SST and Depth
-
 # Use lapp() to multiple values of rasters together
 sst_depth_condition <- lapp(c(sst_reclassify, depth_reclassify), fun = "*")
-
-# sst_depth_condition <- sst_reclassify * depth_reclassify
 
 # Plot both variables together to find suitable areas
 plot(sst_depth_condition)
@@ -115,34 +106,19 @@ plot(sst_depth_condition)
 ### Determine the most suitable EEZ
 
 ```{r}
-# Find total area of suitable locatinos within each EEZ
-
-# Select suitable cells within West Coast EEZs
-
-###### Trying things out #######
-
-crs(sst_depth_condition) == crs(eez)
-
-crs(sst_depth_condition) <- crs(eez)
-
-crs(sst_depth_condition) == crs(eez)
-
+# Assign raster values of 0 to NA for cellSize calculation
 sst_depth_NA <- sst_depth_condition
 sst_depth_NA[sst_depth_NA == 0] <- NA
-
-
 
 # Find suitable area
 suitable_area <- cellSize(sst_depth_NA,
          mask = TRUE,
          unit = "km")
 
-plot(suitable_area)
-
-# Rasterize
+# Rasterize the eez data
 eez_raster <- rasterize(eez, suitable_area, "rgn")
-plot(eez_raster)
 
+# Sum suitable areas for each eez 
 eez_suitable <- zonal(x = suitable_area, 
                       z = eez_raster, 
                       fun = "sum", 
@@ -150,94 +126,64 @@ eez_suitable <- zonal(x = suitable_area,
 
 
 
-print(paste("Suitable area for Oysters in", eez_suitable$rgn[1], "is", eez_suitable$area[1]))
-print(paste("Suitable area for Oysters in", eez_suitable$rgn[2], "is", eez_suitable$area[2]))
-print(paste("Suitable area for Oysters in", eez_suitable$rgn[3], "is", eez_suitable$area[3]))
-print(paste("Suitable area for Oysters in", eez_suitable$rgn[4], "is", eez_suitable$area[4]))
-print(paste("Suitable area for Oysters in", eez_suitable$rgn[5], "is", eez_suitable$area[5]))
+print(paste("Suitable area for Oysters in", eez_suitable$rgn[1], "is", round(eez_suitable$area[1]), "km^2"))
+print(paste("Suitable area for Oysters in", eez_suitable$rgn[2], "is", round(eez_suitable$area[2]), "km^2"))
+print(paste("Suitable area for Oysters in", eez_suitable$rgn[3], "is", round(eez_suitable$area[3]), "km^2"))
+print(paste("Suitable area for Oysters in", eez_suitable$rgn[4], "is", round(eez_suitable$area[4]), "km^2"))
+print(paste("Suitable area for Oysters in", eez_suitable$rgn[5], "is", round(eez_suitable$area[5]), "km^2"))
 
 # sst_depth_cond_vec <- as.polygons(sst_depth_condition) %>% 
 #   st_as_sf()
 
-
-
+my_palette <- c(RColorBrewer::brewer.pal(9, "Greens")[1:5], RColorBrewer::brewer.pal(9, "Blues")[1:5])
+# Map of the suitable areas 
 
 tm_shape(depth_crop) +
   tm_raster(legend.show = FALSE) +
   tm_shape(sst_depth_condition) +
   tm_raster(legend.show = FALSE) +
 tm_shape(eez_raster) +
-  tm_raster(palette = "viridis",
+  tm_raster(palette = c("red", "green", "blue"),
             title = "Region") + 
   tm_shape(sst_depth_condition) +
-  tm_raster(alpha = 0.7,
+  tm_raster(alpha = 0.8,
             legend.show = FALSE) +
   tm_layout(frame = FALSE,
-            legend.position = c(0.05,0.05)) +
+            legend.position = c(0.05,0.05),
+            legend.text.size = 0.5) +
   tm_compass(position = c(0, 0.85)) +
   tm_scale_bar(position = c(0.615, 0.90)) 
 
-# tm_shape(suitable_area) +
-#   tm_raster()
-
-# Suitable cells 
-# suitable_cells <- sst_depth_condition > 0 
-# masked_cells <- mask(suitable_cells, eez_raster)
-# plot(masked_cells)
-# values(suitable_cells)
 
 
-# Mask our raster
-# masked_sst_depth_cond <- mask(sst_depth_cond_crop, eez_raster)
-# masked_sst_depth_cond[masked_sst_depth_cond == 0] <- NA
-# plot(masked_sst_depth_cond)
+tm_shape(depth_crop) +
+  tm_raster(legend.show = FALSE) +
+tm_shape(eez_raster) +
+  tm_raster(palette = "viridis",
+            title = "Region") + 
+  tm_shape(sst_depth_condition) +
+  tm_raster(legend.show = FALSE,
+            alpha = 0.5) + 
+  tm_layout(frame = FALSE,
+            legend.position = c(0.05,0.05),
+            legend.text.size = 0.5) +
+  tm_compass(position = c(0, 0.85)) +
+  tm_scale_bar(position = c(0.615, 0.90)) 
+  
+  
+  
 
-# Zonal: Summarize values in Raster based on Zones in raster
-# zonal_oysters <- zonal(masked_sst_depth_cond, eez_raster, fun = "sum", na.rm = TRUE)
-# zonal_oysters
-# 
-# masked_values <- values(masked_sst_depth_cond)
-# masked_values <- masked_values[!is.na(masked_values)]
-
-# area_cell <- cellSize(masked_sst_depth_cond)
-# answer <- sum(masked_values) * area_cell
-# plot(answer)
-# answer
-
-
-# zonal_answer <- zonal(answer, eez_raster, fun = "sum", na.rm = TRUE)
-# zonal_answer
-# Check to see if the extents are the sameS
-# ext(sst_depth_condition) == ext(eez)
-# 
-# # Crop to the same extent
-# sst_depth_crop <- crop(sst_depth_condition, eez_raster)
-# plot(sst_depth_crop)
-
-# Recheck if extents are the same
-# ext(sst_depth_crop) == ext(eez)
-# 
-# # Rasterize eez data 
-# eez_rast <- rasterize(eez, sst_depth_crop)
-
-# Preliminary Plot
-# plot(eez_rast)
-# 
-# plot(eez_rast - sst_depth_crop)
-
-
-# Vectorize raster data, see where data overlaps with each other??? This is how we determine EEZ range??? 
-# sst_depth_vector <- as.polygons(sst_depth_condition) %>% 
-#   st_as_sf() %>% filter(lyr1 == 1)
-# 
-# sst_depth_eez <- st_intersects(sst_depth_vector, eez) %>% 
-#   unlist()
-# 
-# sst_idk <- sst_depth_vector[sst_depth_eez, ]
-# 
-# 
-# tm_shape(sst_idk) +
-#   tm_polygons()
+  tm_shape(sst_depth_condition) +
+  tm_raster(legend.show = FALSE,
+            palette = my_palette)
+  
+  tm_shape(eez_raster) +
+  tm_raster(palette = "viridis",
+            title = "Region")
+  
+  tm_shape(depth_crop) +
+  tm_raster(legend.show = FALSE,
+            palette = my_palette)
 ```
 
 
