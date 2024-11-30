@@ -127,8 +127,13 @@ crs(sst_depth_condition) <- crs(eez)
 
 crs(sst_depth_condition) == crs(eez)
 
+sst_depth_NA <- sst_depth_condition
+sst_depth_NA[sst_depth_NA == 0] <- NA
+
+
+
 # Find suitable area
-suitable_area <- cellSize(sst_depth_condition,
+suitable_area <- cellSize(sst_depth_NA,
          mask = TRUE,
          unit = "km")
 
