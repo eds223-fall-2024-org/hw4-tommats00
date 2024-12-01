@@ -90,7 +90,7 @@ sst_depth <- c(sst_c, depth_resample)
 ```
 
 ### Find suitable locations
-
+To find suitable locations, we need to reclassify our rasters to places that are and are not suitable for our given species. In this case, oysters can live within a max sea surface  (sst) of 30 degrees Celsius and a min sst of 11 degrees Celsius. Likewise, they ideally live at a max depth of 70 meters up until the surface at 0 meters depth. 
 ```{r}
 # Create reclassification matrix for SST
 sst_rcl <- matrix(c(-Inf, 11, 0,
@@ -181,6 +181,7 @@ tm_shape(depth_crop) +
 
 ### My Function
 
+The California mussel was chosen as the second species because of its high potential to be an aquacultured species. The species is has a depth range of 0 - 100 m and a temperature range of 5 - 22 degrees Celsius. The California mussel can be scene all along the west coast, but it will be interesting to which regions contain the highest habitable area. 
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -303,7 +304,7 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
     tm_scale_bar(position = c(0.05, 0.025)) 
   
   # Print both outputs, Kable table and Map 
-  print(suitable_area_table)
+  return(suitable_area_table)
   
   print(map)
 }
