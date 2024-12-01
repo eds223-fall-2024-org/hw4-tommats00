@@ -6,10 +6,6 @@ library(tidyverse)
 library(tmap)
 
 
-## What I need in my function ## 
-# species, max & min depth, max & min sst for suitable aquaculture zone
-# 
-
 
 aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
   
@@ -30,6 +26,13 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
   eez <- st_transform(eez, crs("EPSG:4326"))
   depth <- project(depth, crs("EPSG:4326"))
   sst <- project(sst, crs("EPSG:4326"))
+  
+  # Checking that the CRSs reprojected to EPSG:4326
+  if (st_crs(eez) == st_crs(depth) && st_crs(depth) == st_crs(sst)){
+    print("All CRSs are the same")
+  } else {
+    warning("CRSs are NOT the same")
+  }
   
   # Find mean SST from 2008-2012
   mean_sst <- app(sst, fun = mean, na.rm = TRUE)
@@ -92,26 +95,37 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
                         na.rm = TRUE)
   
   
-  # Print out suitable area for the species in each eez 
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[1], "is", round(eez_suitable$area[1]), "km^2"))
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[2], "is", round(eez_suitable$area[2]), "km^2"))
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[3], "is", round(eez_suitable$area[3]), "km^2"))
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[4], "is", round(eez_suitable$area[4]), "km^2"))
-  print(paste("Suitable area for", species, "in", eez_suitable$rgn[5], "is", round(eez_suitable$area[5]), "km^2"))
+  # Create a table of suitable area for the species in each eez 
+  suitable_area_table <- kableExtra::kable(eez_suitable, col.names = c("Region", "Suitable Area (km\u00B2)"), align = "c")
+  
+  # Join eez_suitable data with the original eez data to map
+  eez_join <- left_join(eez, eez_suitable, by = "rgn")
+  
   
   # Map of suitable areas 
-  tm_shape(depth_crop) +
-    tm_raster(legend.show = FALSE) +
-    tm_shape(sst_depth_condition) +
-    tm_raster(legend.show = FALSE) +
-    tm_shape(eez_raster) +
-    tm_raster(palette = "viridis",
-              title = "Region") + 
-    tm_shape(sst_depth_condition) +
-    tm_raster(alpha = 0.7,
-              legend.show = FALSE) +
+  map <- tm_shape(depth_crop) +
+    tm_raster(palette = paletteer_c("ggthemes::Green-Blue Diverging", 7, direction = -1),
+              title = "Depth (m)",
+              midpoint = NA) +
+    tm_shape(eez_join) +
+    tm_polygons(col = "area",
+                palette = paletteer_c("ggthemes::Classic Area-Brown", 5),
+                title = "Suitable area (km\u00B2)",
+                alpha = 0.9) +
+    tm_text("rgn", 
+            size = 0.45,
+            col = "black") + 
     tm_layout(frame = FALSE,
-              legend.position = c(0.05,0.05)) +
-    tm_compass(position = c(0, 0.85)) +
-    tm_scale_bar(position = c(0.615, 0.90)) 
+              legend.outside = TRUE,
+              legend.text.size = 0.65,
+              main.title = paste("Suitable aquaculture area (km\u00B2) for", species, "along \nthe West Coast Exclusive Economic Zone (EEZ)"),
+              main.title.size = 1.00) +
+    tm_compass(position = c(0, 0.125),
+               size = 1.5) +
+    tm_scale_bar(position = c(0.05, 0.025)) 
+  
+  # Print both outputs, Kable table and Map 
+  print(suitable_area_table)
+  
+  print(map)
 }
