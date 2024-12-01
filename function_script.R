@@ -1,11 +1,4 @@
 
-library(here)
-library(terra)
-library(sf)
-library(tidyverse)
-library(tmap)
-
-
 
 aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
   
@@ -98,6 +91,7 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
   # Create a table of suitable area for the species in each eez 
   suitable_area_table <- kableExtra::kable(eez_suitable, col.names = c("Region", "Suitable Area (km\u00B2)"), align = "c")
   
+  
   # Join eez_suitable data with the original eez data to map
   eez_join <- left_join(eez, eez_suitable, by = "rgn")
   
@@ -126,6 +120,6 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
   
   # Print both outputs, Kable table and Map 
   print(suitable_area_table)
+  return(map)
   
-  print(map)
 }

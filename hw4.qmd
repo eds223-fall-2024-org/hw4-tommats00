@@ -15,12 +15,15 @@ editor_options:
 ## Background
 Marine aquaculture can play a major role in the global food supply as a protein source. It has the potential to be more sustainable than land-based meat production. According to Gentry et al. global seafood demand could be met using less than 0.015% of total ocean area. 
 
-The goal of this assignment is to determine potential aquaculture producing areas within the Exclusive Economic Zones (EEZ) on the west coast. A workflow will be produced to find suitable aquaculture locations based on suitable sea surface temperature (SST) and depth values for oysters. This workflow will then be transferred into a function to be applied given certain parameters. 
+The goal of this assignment is to determine potential aquaculture producing areas within the Exclusive Economic Zones (EEZ) on the west coast. A workflow will be produced to find suitable aquaculture locations based on suitable sea surface temperature (SST) and depth values for oysters. This workflow will then be transferred into a function to be applied to other species given certain parameters. 
 
 
 ### Load libraries
 
 ```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+
 library(tidyverse)
 library(tmap)
 library(terra)
@@ -90,7 +93,7 @@ sst_depth <- c(sst_c, depth_resample)
 ```
 
 ### Find suitable locations
-To find suitable locations, we need to reclassify our rasters to places that are and are not suitable for our given species. In this case, oysters can live within a max sea surface  (sst) of 30 degrees Celsius and a min sst of 11 degrees Celsius. Likewise, they ideally live at a max depth of 70 meters up until the surface at 0 meters depth. 
+To find suitable locations, we need to reclassify our rasters to places that are and are not suitable for our given species. In this case, oysters can live within a maximum sea surface (SST) of 30 degrees Celsius and a minimum SST of 11 degrees Celsius. Likewise, their depth ranges from the surface at 0 meters to a maximum depth of 70 meters.
 ```{r}
 # Create reclassification matrix for SST
 sst_rcl <- matrix(c(-Inf, 11, 0,
@@ -143,11 +146,14 @@ eez_suitable <- zonal(x = suitable_area,
 #| code-fold: true
 #| code-summary: "Show the code"
 
-kableExtra::kable(eez_suitable, col.names = c("Region", "Suitable Area (km\u00B2)"), align = "c")
+kableExtra::kable(eez_suitable, 
+                  col.names = c("Region", "Suitable Area (km\u00B2)"), 
+                  align = "c",
+                  caption = "Suitable area (km\u00B2) for Oysters in the west coast EEZ")
 ```
 
 
-```{r}
+```{r, fig.align= 'center'}
 #| code-fold: true
 #| code-summary: "Show the code"
 
@@ -181,7 +187,7 @@ tm_shape(depth_crop) +
 
 ### My Function
 
-The California mussel was chosen as the second species because of its high potential to be an aquacultured species. The species is has a depth range of 0 - 100 m and a temperature range of 5 - 22 degrees Celsius. The California mussel can be scene all along the west coast, but it will be interesting to which regions contain the highest habitable area. 
+The California mussel was chosen as the second species because of its high potential to be aquacultured. The species has a depth range of 0 - 100 meters and a temperature range of 5 - 22 degrees Celsius. The California mussel can be seen all along the west coast, but it will be interesting to see which regions contain the highest habitable area. 
 ```{r}
 #| code-fold: true
 #| code-summary: "Show the code"
@@ -273,10 +279,6 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
                         fun = "sum", 
                         na.rm = TRUE)
   
-  
-  # Create a table of suitable area for the species in each eez 
-  suitable_area_table <- kableExtra::kable(eez_suitable, col.names = c("Region", "Suitable Area (km\u00B2)"), align = "c")
-  
   # Join eez_suitable data with the original eez data to map
   eez_join <- left_join(eez, eez_suitable, by = "rgn")
   
@@ -304,22 +306,17 @@ aqua_fun <- function(species, max_sst, min_sst, max_depth, min_depth ){
     tm_scale_bar(position = c(0.05, 0.025)) 
   
   # Print both outputs, Kable table and Map 
-  return(suitable_area_table)
-  
-  print(map)
+  return(map)
 }
 ```
 
-```{r}
+```{r, fig.align='center'}
 # Use my function for the California mussel, *Mytilus californianu*
-# species = "California mussel"
-# max_sst = 22
-# min_sst = 5
-# max_depth = 100,
-# min_depth = 0 
-aqua_fun("California", 22, 5, 100, 0)
+# species = "California mussel", max_sst = 22, min_sst = 5, max_depth = 100, min_depth = 0 
+aqua_fun("California mussels", 22, 5, 100, 0)
 ```
-
+## Conclusion
+This function could be used to find suitable aquaculture producing locations for marine species. Of course there are limitations as SST and depth are the only parameters needed. The function is limited to only the west coast of the United States but it shows the potential area for where species could be farmed. It can act as a preliminary screening. 
 
 ## Citations
 ```{r}
